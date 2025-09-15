@@ -86,8 +86,12 @@ npm install
 - Enable Cloud Functions
 
 3. Configure secrets
+
+```bash
 cd functions
 touch .env.local
+```
+
 add the OPENWEATHER_API_KEY
 
 4. Frontend config
@@ -107,10 +111,13 @@ VITE_FUNCTIONS_BASE=https://us-central1-<project-id>.cloudfunctions.net/api
 
 ```bash
 # In one terminal
-firebase emulators:start
+cd functions
+npm run serve
+```
 
+```bash
 # In another (frontend)
-cd web
+cd web-app
 npm run dev
 ```
 
@@ -119,6 +126,15 @@ npm run dev
 ```bash
 firebase deploy --only functions,hosting
 ```
+
+# Run testing
+
+```bash
+# In one terminal
+cd functions
+npm run test
+```
+
 
 ## What’s implemented
 
