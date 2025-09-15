@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "staging": "user-management-2e51e",
+    "default": "user-management-2e51e"
+  }
+}

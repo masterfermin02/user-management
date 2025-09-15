@@ -1,5 +1,20 @@
 {
+  "compilerOptions": {
+    "module": "NodeNext",
+    "esModuleInterop": true,
+    "moduleResolution": "nodenext",
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "outDir": "lib",
+    "sourceMap": true,
+    "strict": true,
+    "target": "es2017",
+    "types": ["jest", "node"]
+  },
+  "compileOnSave": true,
   "include": [
-    ".eslintrc.js"
+    "src/**/*.ts",
+    "__tests__/**/*.ts",
+    "__mocks__/**/*.ts"
   ]
 }
