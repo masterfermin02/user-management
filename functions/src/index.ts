@@ -47,7 +47,7 @@ app.post("/users", async (req, res) => {
     const {name, zip} = createUserSchema.parse(req.body);
     const geo = await resolveZip(zip);
 
-    const ref = db.ref("users").push();
+    const ref = db.ref("users");
     const now = Date.now();
     const user = {
       id: ref.key!,
