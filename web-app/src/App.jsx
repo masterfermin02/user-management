@@ -1,18 +1,18 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import './App.css'
-import { query,off, ref, orderByChild, endAt, limitToFirst, onChildAdded, onChildChanged, onChildRemoved } from "firebase/database";
+import { query,off, ref, orderByChild, endAt, limitToLast, onChildAdded, onChildChanged, onChildRemoved } from "firebase/database";
 import { createUser, updateUser, deleteUser } from "./api";
 import { rtdb } from "./firebase";
 
 function App() {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState({});
   const [name, setName] = useState("");
   const [zip, setZip] = useState("");
-  const [cursor, setCursor] = useState(null); // timestamp cursor
+  // Removed unused cursor state
   const [isLoading, setIsLoading] = useState(false);
   const liveRef = useRef(null);
 
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = 2;
 
   const attachLiveWindow = useCallback((startTs) => {
     // Clean up any previous listeners
@@ -32,19 +32,17 @@ function App() {
       // We want the *last* PAGE_SIZE by updatedAt up to endAtTs
       // limitToLast is better for "latest first"
       // (We’ll reverse when rendering if needed.)
-      limitToFirst(PAGE_SIZE) // Alternative: use limitToLast if you want newest-first slice
+      limitToLast(PAGE_SIZE) // Alternative: use limitToLast if you want newest-first slice
       // NOTE: If you use limitToLast here, you don’t get older pages easily.
     );
 
     // We’ll use child listeners for incremental updates
-    const added = [];
-
     onChildAdded(usersQ, (snap) => {
       if (!snap.exists()) return;
       const id = snap.key;
       const val = snap.val();
-      added.push(id);
       setUsers((prev) => ({ ...prev, [id]: val }));
+      setIsLoading(false);
     });
 
     onChildChanged(usersQ, (snap) => {
@@ -65,7 +63,7 @@ function App() {
 
     liveRef.current = ref(rtdb, "users"); // keep a handle to turn off later
     setIsLoading(false);
-  }, [rtdb]);
+  }, []); // rtdb is imported, not a reactive dependency
 
   useEffect(() => {
     attachLiveWindow(null);
@@ -80,20 +78,59 @@ function App() {
       .map(([id, t]) => ({ id, ...t }))
       .sort((a, b) => a.updatedAt - b.updatedAt); // ascending
     if (entries.length === 0) return;
-    const oldest = entries[0].updatedAt;
-    setCursor(oldest - 1);
-    attachLiveWindow(oldest - 1);
+  const oldest = entries[0].updatedAt;
+  attachLiveWindow(oldest - 1);
   }, [users, attachLiveWindow]);
 
   const onCreate = async (e) => {
     e.preventDefault();
-    await createUser({ name, zip });
-    setName(""); setZip("");
+    try {
+      await createUser({ name, zip });
+      setName(""); setZip("");
+    } catch (err) {
+      alert("Error creating user: " + err.message);
+    }
   };
  
 
-  const list = Object.entries(users).map(([id, user]) => ({id, ...user}))
- 
+  const list = useMemo(() =>
+    Object.entries(users)
+      .map(([id, user]) => ({ id, ...user }))
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+  , [users]);
+  // Handler functions for user actions
+  const handleRename = async (user) => {
+    const newName = prompt("New name", user.name);
+    if (newName && newName !== user.name) {
+      try {
+        await updateUser(user.id, { name: newName });
+      } catch (err) {
+        alert("Error updating user: " + err.message);
+      }
+    }
+  };
+
+  const handleChangeZip = async (user) => {
+    const newZip = prompt("New ZIP", user.zip);
+    if (newZip && newZip !== user.zip) {
+      try {
+        await updateUser(user.id, { zip: newZip });
+      } catch (err) {
+        alert("Error updating ZIP: " + err.message);
+      }
+    }
+  };
+
+  const handleDelete = async (userId) => {
+    if (window.confirm("Delete this user?")) {
+      try {
+        await deleteUser(userId);
+      } catch (err) {
+        alert("Error deleting user: " + err.message);
+      }
+    }
+  };
+
   return (
     <div style={{ maxWidth: 720, margin: "2rem auto", fontFamily: "system-ui" }}>
       <h1>User Directory (Realtime)</h1>
@@ -110,15 +147,9 @@ function App() {
             <div>lat/lon: {u.lat}, {u.lon}</div>
             <div>timezone: {u.timezone} ({u.tzOffsetSec >= 0 ? "+" : ""}{Math.round(u.tzOffsetSec/3600)}h)</div>
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <button onClick={() => {
-                const newName = prompt("New name", u.name);
-                if (newName) updateUser(u.id, { name: newName });
-              }}>Rename</button>
-              <button onClick={() => {
-                const newZip = prompt("New ZIP", u.zip);
-                if (newZip && newZip !== u.zip) updateUser(u.id, { zip: newZip });
-              }}>Change ZIP</button>
-              <button onClick={() => deleteUser(u.id)}>Delete</button>
+              <button onClick={() => handleRename(u)}>Rename</button>
+              <button onClick={() => handleChangeZip(u)}>Change ZIP</button>
+              <button onClick={() => handleDelete(u.id)}>Delete</button>
             </div>
           </li>
         ))}
